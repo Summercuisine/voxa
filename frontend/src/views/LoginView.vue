@@ -2,7 +2,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import { NCard, NForm, NFormItem, NInput, NButton, NSpace } from 'naive-ui'
+import { NCard, NForm, NFormItem, NInput, NButton, NSpace, NDivider } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
 
@@ -51,6 +51,16 @@ async function handleSubmit() {
     loading.value = false
   }
 }
+
+function handleGithubLogin() {
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+  window.location.href = `${apiBase}/auth/github`
+}
+
+function handleGoogleLogin() {
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+  window.location.href = `${apiBase}/auth/google`
+}
 </script>
 
 <template>
@@ -93,7 +103,19 @@ async function handleSubmit() {
           </n-button>
         </n-form-item>
       </n-form>
-      <n-space justify="center">
+
+      <n-divider>或</n-divider>
+
+      <n-space vertical :size="12">
+        <n-button block secondary @click="handleGithubLogin">
+          GitHub 登录
+        </n-button>
+        <n-button block secondary @click="handleGoogleLogin">
+          Google 登录
+        </n-button>
+      </n-space>
+
+      <n-space justify="center" style="margin-top: 16px">
         <router-link to="/register" class="link">没有账号？去注册</router-link>
       </n-space>
     </n-card>

@@ -5,6 +5,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -96,5 +97,53 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async findOrCreateOAuthUser(profile: {
+    provider: string;
+    providerId: string;
+    username: string;
+    email: string;
+    avatar?: string;
+  }) {
+    // 先按 email 查找用户
+    let user = await this.prisma.user.findUnique({
+      where: { email: profile.email },
+    });
+
+    if (!user) {
+      // 生成唯一用户名
+      let username = profile.username;
+      const existingUser = await this.prisma.user.findUnique({
+        where: { username },
+      });
+      if (existingUser) {
+        username = `${profile.username}_${profile.provider}${Date.now()}`;
+      }
+
+      // 创建新用户，密码设为随机字符串
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      user = await this.prisma.user.create({
+        data: {
+          username,
+          email: profile.email,
+          password: hashedPassword,
+          avatar: profile.avatar || null,
+        },
+      });
+    }
+
+    // 生成 JWT token
+    const payload = { sub: user.id, username: user.username };
+    const access_token = this.jwtService.sign(payload);
+
+    const { password, ...userWithoutPassword } = user;
+
+    return {
+      access_token,
+      user: userWithoutPassword,
+    };
   }
 }

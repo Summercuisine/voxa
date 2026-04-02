@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { NLayout, NLayoutContent, NLayoutHeader, NButton, NDropdown, NAvatar, NSpace, NBadge, NPopover, NList, NListItem, NIcon, NTag, NSpin, NEmpty } from 'naive-ui'
-import { NotificationsOutline, Notifications, CheckmarkDoneOutline, ChatbubbleOutline, HeartOutline, MailOutline, InformationCircleOutline } from '@vicons/ionicons5'
+import { NLayout, NLayoutContent, NLayoutHeader, NButton, NDropdown, NAvatar, NSpace, NBadge, NPopover, NList, NListItem, NIcon, NTag, NSpin, NEmpty, NTooltip } from 'naive-ui'
+import { NotificationsOutline, Notifications, CheckmarkDoneOutline, ChatbubbleOutline, HeartOutline, MailOutline, InformationCircleOutline, SunnyOutline, MoonOutline, ShieldCheckmarkOutline } from '@vicons/ionicons5'
 import { useUserStore } from '@/stores/user'
 import { useMessageStore } from '@/stores/message'
 import { useNotificationStore } from '@/stores/notification'
+import { useThemeStore } from '@/stores/theme'
 import { onMounted, onUnmounted } from 'vue'
 import { formatRelativeTime } from '@/utils'
 import type { Notification } from '@/types'
@@ -13,6 +14,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const messageStore = useMessageStore()
 const notificationStore = useNotificationStore()
+const themeStore = useThemeStore()
 
 const userDropdownOptions = [
   { label: '个人主页', key: 'profile' },
@@ -101,6 +103,17 @@ onUnmounted(() => {
         <n-button quaternary size="small" @click="router.push('/bots')">
           AI 机器人
         </n-button>
+        <n-tooltip v-if="userStore.isAdmin" trigger="hover">
+          <template #trigger>
+            <n-button quaternary size="small" @click="router.push('/admin')">
+              <template #icon>
+                <n-icon :component="ShieldCheckmarkOutline" />
+              </template>
+              管理后台
+            </n-button>
+          </template>
+          管理后台
+        </n-tooltip>
         <template v-if="userStore.isLoggedIn">
           <n-badge :value="messageStore.unreadCount || undefined" :max="99">
             <n-button quaternary size="small" @click="router.push('/messages')">
@@ -174,6 +187,16 @@ onUnmounted(() => {
         </template>
       </div>
       <div class="header-actions">
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <n-button quaternary size="small" @click="themeStore.toggleTheme">
+              <template #icon>
+                <n-icon :component="themeStore.isDark ? SunnyOutline : MoonOutline" />
+              </template>
+            </n-button>
+          </template>
+          {{ themeStore.isDark ? '切换亮色主题' : '切换暗色主题' }}
+        </n-tooltip>
         <template v-if="userStore.isLoggedIn">
           <n-dropdown
             :options="userDropdownOptions"

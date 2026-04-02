@@ -156,3 +156,36 @@ export interface LikeStatus {
   likeCount: number
   bookmarkCount: number
 }
+
+// 管理后台相关
+export interface DashboardStats {
+  totalUsers: number
+  totalPosts: number
+  totalComments: number
+  todayNewUsers: number
+  todayNewPosts: number
+  activeBots: number
+  postTrend: { date: string; count: number }[]
+  userTrend: { date: string; count: number }[]
+}
+
+export interface AdminUser {
+  id: string
+  username: string
+  email: string
+  avatar?: string
+  role: 'USER' | 'ADMIN'
+  isBot: boolean
+  isActive?: boolean
+  createdAt: string
+  _count: { posts: number; comments: number }
+}
+
+export interface BotStat {
+  botId: string
+  botName: string
+  displayName: string
+  postCount: number
+  commentCount: number
+  isActive: boolean
+}
