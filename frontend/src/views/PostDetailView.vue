@@ -27,7 +27,10 @@ import {
   ChatbubbleOutline,
   EyeOutline,
 } from '@vicons/ionicons5'
+import { MdPreview } from 'md-editor-v3'
+import 'md-editor-v3/lib/preview.css'
 import { getPost, likePost, unlikePost, favoritePost, unfavoritePost } from '@/api/posts'
+import { getLikeStatus, togglePostLike, toggleBookmark } from '@/api/likes'
 import { getComments, createComment } from '@/api/comments'
 import { useUserStore } from '@/stores/user'
 import { formatRelativeTime, getUserAvatar } from '@/utils'
@@ -46,6 +49,8 @@ const post = ref<Post | null>(null)
 const loading = ref(false)
 const isLiked = ref(false)
 const isFavorited = ref(false)
+const likeCount = ref(0)
+const bookmarkCount = ref(0)
 
 // 评论状态
 const comments = ref<Comment[]>([])
@@ -60,11 +65,27 @@ async function fetchPost() {
   try {
     const res = await getPost(postId.value)
     post.value = res
+    likeCount.value = res._count.likes
+    bookmarkCount.value = res._count.bookmarks
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : '获取帖子详情失败'
     message.error(errorMsg)
   } finally {
     loading.value = false
+  }
+}
+
+// 获取点赞/收藏状态
+async function fetchLikeStatus() {
+  if (!userStore.isLoggedIn) return
+  try {
+    const res = await getLikeStatus(postId.value)
+    isLiked.value = res.isLiked
+    isFavorited.value = res.isBookmarked
+    likeCount.value = res.likeCount
+    bookmarkCount.value = res.bookmarkCount
+  } catch {
+    // 静默处理，使用帖子数据中的计数
   }
 }
 
@@ -119,15 +140,10 @@ async function toggleLike() {
     return
   }
   try {
-    if (isLiked.value) {
-      await unlikePost(postId.value)
-      isLiked.value = false
-      if (post.value) post.value._count.likes--
-    } else {
-      await likePost(postId.value)
-      isLiked.value = true
-      if (post.value) post.value._count.likes++
-    }
+    await togglePostLike(postId.value)
+    isLiked.value = !isLiked.value
+    likeCount.value += isLiked.value ? 1 : -1
+    message.success(isLiked.value ? '已点赞' : '已取消点赞')
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : '操作失败'
     message.error(errorMsg)
@@ -141,14 +157,10 @@ async function toggleFavorite() {
     return
   }
   try {
-    if (isFavorited.value) {
-      await unfavoritePost(postId.value)
-      isFavorited.value = false
-    } else {
-      await favoritePost(postId.value)
-      isFavorited.value = true
-      message.success('收藏成功')
-    }
+    await toggleBookmark(postId.value)
+    isFavorited.value = !isFavorited.value
+    bookmarkCount.value += isFavorited.value ? 1 : -1
+    message.success(isFavorited.value ? '收藏成功' : '已取消收藏')
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : '操作失败'
     message.error(errorMsg)
@@ -222,6 +234,7 @@ function goToUser(userId: string) {
 onMounted(() => {
   fetchPost()
   fetchComments()
+  fetchLikeStatus()
 })
 </script>
 
@@ -282,9 +295,9 @@ onMounted(() => {
           </n-tag>
         </div>
 
-        <!-- 帖子内容 -->
+        <!-- 帖子内容 - Markdown 渲染 -->
         <n-card class="post-detail__content">
-          <div class="post-content" v-html="post.content" />
+          <MdPreview :model-value="post.content" language="zh-CN" />
         </n-card>
 
         <!-- 操作栏 -->
@@ -297,7 +310,7 @@ onMounted(() => {
               <template #icon>
                 <n-icon :component="isLiked ? Heart : HeartOutline" />
               </template>
-              {{ post._count.likes }}
+              {{ likeCount }}
             </n-button>
             <n-button
               :type="isFavorited ? 'warning' : 'default'"
@@ -306,7 +319,7 @@ onMounted(() => {
               <template #icon>
                 <n-icon :component="isFavorited ? Star : StarOutline" />
               </template>
-              {{ isFavorited ? '已收藏' : '收藏' }}
+              {{ bookmarkCount }}
             </n-button>
             <n-button @click="handleShare">
               <template #icon>
@@ -450,35 +463,6 @@ onMounted(() => {
 
 .post-detail__content {
   margin-bottom: 16px;
-}
-
-.post-content {
-  font-size: 15px;
-  line-height: 1.8;
-  color: #333;
-  word-break: break-word;
-}
-
-.post-content :deep(p) {
-  margin: 0 0 12px 0;
-}
-
-.post-content :deep(pre) {
-  background: #f6f8fa;
-  padding: 16px;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 12px 0;
-}
-
-.post-content :deep(code) {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 14px;
-}
-
-.post-content :deep(img) {
-  max-width: 100%;
-  border-radius: 6px;
 }
 
 .post-detail__actions {

@@ -5,7 +5,6 @@ import { useMessage } from 'naive-ui'
 import {
   NCard,
   NButton,
-  NInput,
   NSelect,
   NSpace,
   NDynamicTags,
@@ -14,8 +13,11 @@ import {
   NFormItem,
 } from 'naive-ui'
 import { SendOutline } from '@vicons/ionicons5'
+import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 import { createPost } from '@/api/posts'
 import { getCategories } from '@/api/categories'
+import { uploadImage } from '@/api/upload'
 import { useUserStore } from '@/stores/user'
 import type { Category } from '@/types'
 
@@ -47,6 +49,20 @@ async function fetchCategories() {
     const errorMsg = err instanceof Error ? err.message : '获取分类列表失败'
     message.error(errorMsg)
   }
+}
+
+// 图片上传回调
+async function handleUploadImg(files: File[], callback: (urls: string[]) => void) {
+  const urls: string[] = []
+  for (const file of files) {
+    try {
+      const res = await uploadImage(file)
+      urls.push(res.url)
+    } catch {
+      message.error(`图片 ${file.name} 上传失败`)
+    }
+  }
+  callback(urls)
 }
 
 // 表单验证
@@ -125,12 +141,14 @@ onMounted(() => {
         </n-form-item>
 
         <n-form-item label="内容" required>
-          <n-input
-            v-model:value="content"
-            type="textarea"
+          <MdEditor
+            v-model="content"
+            language="zh-CN"
+            :preview="true"
+            :toolbars-exclude="['github']"
             placeholder="请输入帖子内容（支持 Markdown）..."
-            :rows="15"
-            :autosize="{ minRows: 10, maxRows: 30 }"
+            @on-upload-img="handleUploadImg"
+            style="height: 500px"
           />
         </n-form-item>
 

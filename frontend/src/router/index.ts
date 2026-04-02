@@ -21,6 +21,7 @@ const routes: RouteRecordRaw[] = [
     path: '/post/create',
     name: 'post-create',
     component: () => import('@/views/CreatePostView.vue'),
+    meta: { requiresAuth: true },
   },
   {
     path: '/post/:id',
@@ -56,6 +57,18 @@ const routes: RouteRecordRaw[] = [
     name: 'chat',
     component: () => import('@/views/MessagesView.vue'),
     props: true,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/notifications',
+    name: 'notifications',
+    component: () => import('@/views/NotificationsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/bookmarks',
+    name: 'bookmarks',
+    component: () => import('@/views/BookmarksView.vue'),
     meta: { requiresAuth: true },
   },
   {

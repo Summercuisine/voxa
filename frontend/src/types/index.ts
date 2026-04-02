@@ -136,3 +136,23 @@ export interface Message {
   conversationId: string
   createdAt: string
 }
+
+// 通知相关
+export interface Notification {
+  id: string
+  type: 'COMMENT_REPLY' | 'POST_LIKE' | 'COMMENT_LIKE' | 'NEW_MESSAGE' | 'SYSTEM'
+  title: string
+  content: string
+  link?: string
+  isRead: boolean
+  userId: string
+  createdAt: string
+}
+
+// 点赞/收藏状态
+export interface LikeStatus {
+  isLiked: boolean
+  isBookmarked: boolean
+  likeCount: number
+  bookmarkCount: number
+}
