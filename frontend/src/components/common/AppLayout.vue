@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { NLayout, NLayoutContent, NLayoutHeader, NButton, NDropdown, NAvatar, NSpace, NBadge, NPopover, NList, NListItem, NIcon, NTag, NSpin, NEmpty, NTooltip } from 'naive-ui'
-import { NotificationsOutline, Notifications, CheckmarkDoneOutline, ChatbubbleOutline, HeartOutline, MailOutline, InformationCircleOutline, SunnyOutline, MoonOutline, ShieldCheckmarkOutline } from '@vicons/ionicons5'
+import { NLayout, NLayoutContent, NLayoutHeader, NButton, NDropdown, NAvatar, NSpace, NBadge, NPopover, NList, NListItem, NIcon, NTag, NSpin, NEmpty, NTooltip, NSelect } from 'naive-ui'
+import { NotificationsOutline, Notifications, CheckmarkDoneOutline, ChatbubbleOutline, HeartOutline, MailOutline, InformationCircleOutline, SunnyOutline, MoonOutline, ShieldCheckmarkOutline, LanguageOutline } from '@vicons/ionicons5'
 import { useUserStore } from '@/stores/user'
 import { useMessageStore } from '@/stores/message'
 import { useNotificationStore } from '@/stores/notification'
 import { useThemeStore } from '@/stores/theme'
-import { onMounted, onUnmounted } from 'vue'
+import { useLocaleStore } from '@/stores/locale'
+import { useI18n } from 'vue-i18n'
+import { onMounted, onUnmounted, computed } from 'vue'
 import { formatRelativeTime } from '@/utils'
 import type { Notification } from '@/types'
 
@@ -15,14 +17,25 @@ const userStore = useUserStore()
 const messageStore = useMessageStore()
 const notificationStore = useNotificationStore()
 const themeStore = useThemeStore()
+const localeStore = useLocaleStore()
+const { t } = useI18n()
 
-const userDropdownOptions = [
-  { label: '个人主页', key: 'profile' },
-  { label: '我的收藏', key: 'bookmarks' },
-  { label: '设置', key: 'settings' },
-  { type: 'divider', key: 'd1' },
-  { label: '退出登录', key: 'logout' },
+const localeOptions = [
+  { label: '中文', value: 'zh-CN' },
+  { label: 'English', value: 'en-US' },
 ]
+
+const userDropdownOptions = computed(() => [
+  { label: t('nav.profile'), key: 'profile' },
+  { label: t('nav.bookmarks'), key: 'bookmarks' },
+  { label: t('common.settings'), key: 'settings' },
+  { type: 'divider', key: 'd1' },
+  { label: t('common.logout'), key: 'logout' },
+])
+
+function handleLocaleChange(value: string) {
+  localeStore.setLocale(value)
+}
 
 function handleUserDropdownSelect(key: string) {
   switch (key) {
@@ -101,7 +114,7 @@ onUnmounted(() => {
       </div>
       <div class="header-nav">
         <n-button quaternary size="small" @click="router.push('/bots')">
-          AI 机器人
+          {{ t('nav.bots') }}
         </n-button>
         <n-tooltip v-if="userStore.isAdmin" trigger="hover">
           <template #trigger>
@@ -109,15 +122,15 @@ onUnmounted(() => {
               <template #icon>
                 <n-icon :component="ShieldCheckmarkOutline" />
               </template>
-              管理后台
+              {{ t('nav.admin') }}
             </n-button>
           </template>
-          管理后台
+          {{ t('nav.admin') }}
         </n-tooltip>
         <template v-if="userStore.isLoggedIn">
           <n-badge :value="messageStore.unreadCount || undefined" :max="99">
             <n-button quaternary size="small" @click="router.push('/messages')">
-              私信
+              {{ t('nav.messages') }}
             </n-button>
           </n-badge>
 
@@ -134,7 +147,7 @@ onUnmounted(() => {
             </template>
             <div class="notification-panel">
               <div class="notification-panel__header">
-                <span class="notification-panel__title">通知</span>
+                <span class="notification-panel__title">{{ t('notification.title') }}</span>
                 <n-button
                   v-if="notificationStore.unreadCount > 0"
                   text
@@ -144,13 +157,13 @@ onUnmounted(() => {
                   <template #icon>
                     <n-icon :component="CheckmarkDoneOutline" />
                   </template>
-                  全部已读
+                  {{ t('notification.markAllRead') }}
                 </n-button>
               </div>
               <n-spin :show="notificationStore.isLoading">
                 <n-empty
                   v-if="!notificationStore.isLoading && notificationStore.notifications.length === 0"
-                  description="暂无通知"
+                  :description="t('notification.noNotifications')"
                   :show-icon="false"
                   size="small"
                 />
@@ -179,7 +192,7 @@ onUnmounted(() => {
               </n-spin>
               <div class="notification-panel__footer">
                 <n-button text size="small" @click="router.push('/notifications')">
-                  查看全部通知
+                  {{ t('notification.viewAll') }}
                 </n-button>
               </div>
             </div>
@@ -187,6 +200,14 @@ onUnmounted(() => {
         </template>
       </div>
       <div class="header-actions">
+        <!-- 语言切换 -->
+        <n-select
+          :value="localeStore.locale"
+          :options="localeOptions"
+          size="small"
+          style="width: 100px"
+          @update:value="handleLocaleChange"
+        />
         <n-tooltip trigger="hover">
           <template #trigger>
             <n-button quaternary size="small" @click="themeStore.toggleTheme">
@@ -218,10 +239,10 @@ onUnmounted(() => {
         <template v-else>
           <n-space :size="8">
             <n-button quaternary size="small" @click="router.push('/login')">
-              登录
+              {{ t('common.login') }}
             </n-button>
             <n-button type="primary" size="small" @click="router.push('/register')">
-              注册
+              {{ t('common.register') }}
             </n-button>
           </n-space>
         </template>
@@ -250,6 +271,7 @@ onUnmounted(() => {
 .header-actions {
   display: flex;
   align-items: center;
+  gap: 4px;
 }
 </style>
 

@@ -22,12 +22,14 @@ import { SearchOutline, CreateOutline } from '@vicons/ionicons5'
 import { getPosts } from '@/api/posts'
 import { getCategories } from '@/api/categories'
 import { useUserStore } from '@/stores/user'
+import { useI18n } from 'vue-i18n'
 import { formatRelativeTime, truncateText, getUserAvatar } from '@/utils'
 import type { PostListItem, Category } from '@/types'
 
 const router = useRouter()
 const message = useMessage()
 const userStore = useUserStore()
+const { t } = useI18n()
 
 // 状态
 const posts = ref<PostListItem[]>([])
@@ -128,7 +130,7 @@ onMounted(() => {
       <div class="search-box">
         <n-input
           v-model:value="searchQuery"
-          placeholder="搜索帖子..."
+          :placeholder="t('common.search') + '...'"
           clearable
           @keyup.enter="handleSearch"
         >
@@ -136,13 +138,13 @@ onMounted(() => {
             <n-icon :component="SearchOutline" />
           </template>
         </n-input>
-        <n-button type="primary" @click="handleSearch">搜索</n-button>
+        <n-button type="primary" @click="handleSearch">{{ t('common.search') }}</n-button>
       </div>
       <n-button v-if="userStore.isLoggedIn" type="primary" @click="goToCreatePost">
         <template #icon>
           <n-icon :component="CreateOutline" />
         </template>
-        发帖
+        {{ t('post.createPost') }}
       </n-button>
     </div>
 
@@ -153,7 +155,7 @@ onMounted(() => {
         :value="activeCategory ?? 'all'"
         @update:value="handleCategoryChange"
       >
-        <n-tab-pane name="all" tab="全部" />
+        <n-tab-pane name="all" :tab="t('common.all')" />
         <n-tab-pane
           v-for="cat in categories"
           :key="cat.id"
@@ -166,7 +168,7 @@ onMounted(() => {
     <!-- 帖子列表 -->
     <div class="post-list">
       <n-spin :show="loading">
-        <n-empty v-if="!loading && posts.length === 0" description="暂无帖子" />
+        <n-empty v-if="!loading && posts.length === 0" :description="t('post.noPosts')" />
         <div v-else class="post-cards">
           <n-card
             v-for="post in posts"
@@ -196,8 +198,8 @@ onMounted(() => {
                 >
                   {{ post.category.name }}
                 </n-tag>
-                <span v-if="post.isPinned" class="post-card__pin" title="置顶">📌</span>
-                <span v-if="post.isLocked" class="post-card__lock" title="锁定">🔒</span>
+                <span v-if="post.isPinned" class="post-card__pin" :title="t('post.pinned')"></span>
+                <span v-if="post.isLocked" class="post-card__lock" :title="t('post.locked')"></span>
               </div>
             </div>
 
@@ -218,11 +220,11 @@ onMounted(() => {
             </div>
 
             <div class="post-card__footer">
-              <span class="post-card__stat" title="评论数">
-                💬 {{ post._count.comments }}
+              <span class="post-card__stat" :title="t('post.comments')">
+                {{ post._count.comments }}
               </span>
-              <span class="post-card__stat" title="浏览数">
-                👁 {{ post.viewCount }}
+              <span class="post-card__stat" :title="t('post.views')">
+                {{ post.viewCount }}
               </span>
               <span class="post-card__time">
                 {{ formatRelativeTime(post.createdAt) }}

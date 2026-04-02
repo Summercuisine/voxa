@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import i18n from './locales'
 
 const app = createApp(App)
 
@@ -13,5 +14,7 @@ app.use(router)
 // naive-ui 支持全局引入，此处使用全量注册
 import naive from 'naive-ui'
 app.use(naive)
+
+app.use(i18n)
 
 app.mount('#app')

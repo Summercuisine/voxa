@@ -5,11 +5,13 @@ import { useMessage } from 'naive-ui'
 import { NCard, NForm, NFormItem, NInput, NButton, NSpace, NDivider } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 const userStore = useUserStore()
+const { t } = useI18n()
 
 const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
@@ -40,7 +42,7 @@ async function handleSubmit() {
   loading.value = true
   try {
     await userStore.login(formData.email, formData.password)
-    message.success('登录成功')
+    message.success(t('auth.loginSuccess'))
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)
   } catch (err: unknown) {
@@ -65,7 +67,7 @@ function handleGoogleLogin() {
 
 <template>
   <div class="login-page">
-    <n-card title="登录" class="login-card" :bordered="false">
+    <n-card :title="t('auth.loginTitle')" class="login-card" :bordered="false">
       <n-form
         ref="formRef"
         :model="formData"
@@ -77,7 +79,7 @@ function handleGoogleLogin() {
         <n-form-item path="email" label="">
           <n-input
             v-model:value="formData.email"
-            placeholder="邮箱地址"
+            :placeholder="t('auth.email')"
             :input-props="{ autocomplete: 'email' }"
             @keyup.enter="handleSubmit"
           />
@@ -87,7 +89,7 @@ function handleGoogleLogin() {
             v-model:value="formData.password"
             type="password"
             show-password-on="click"
-            placeholder="密码"
+            :placeholder="t('auth.password')"
             :input-props="{ autocomplete: 'current-password' }"
             @keyup.enter="handleSubmit"
           />
@@ -99,7 +101,7 @@ function handleGoogleLogin() {
             :loading="loading"
             @click="handleSubmit"
           >
-            登录
+            {{ t('auth.loginButton') }}
           </n-button>
         </n-form-item>
       </n-form>
@@ -108,15 +110,15 @@ function handleGoogleLogin() {
 
       <n-space vertical :size="12">
         <n-button block secondary @click="handleGithubLogin">
-          GitHub 登录
+          {{ t('auth.githubLogin') }}
         </n-button>
         <n-button block secondary @click="handleGoogleLogin">
-          Google 登录
+          {{ t('auth.googleLogin') }}
         </n-button>
       </n-space>
 
       <n-space justify="center" style="margin-top: 16px">
-        <router-link to="/register" class="link">没有账号？去注册</router-link>
+        <router-link to="/register" class="link">{{ t('auth.noAccount') }}{{ t('auth.goRegister') }}</router-link>
       </n-space>
     </n-card>
   </div>

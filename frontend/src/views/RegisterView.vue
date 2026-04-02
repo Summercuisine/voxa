@@ -5,11 +5,13 @@ import { useMessage } from 'naive-ui'
 import { NCard, NForm, NFormItem, NInput, NButton, NSpace } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 const userStore = useUserStore()
+const { t } = useI18n()
 
 const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
@@ -58,7 +60,7 @@ async function handleSubmit() {
   loading.value = true
   try {
     await userStore.register(formData.username, formData.email, formData.password)
-    message.success('注册成功')
+    message.success(t('auth.registerSuccess'))
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)
   } catch (err: unknown) {
@@ -73,7 +75,7 @@ async function handleSubmit() {
 
 <template>
   <div class="register-page">
-    <n-card title="注册" class="register-card" :bordered="false">
+    <n-card :title="t('auth.registerTitle')" class="register-card" :bordered="false">
       <n-form
         ref="formRef"
         :model="formData"
@@ -85,14 +87,14 @@ async function handleSubmit() {
         <n-form-item path="username" label="">
           <n-input
             v-model:value="formData.username"
-            placeholder="用户名（3-30 个字符）"
+            :placeholder="t('auth.username') + '（3-30）'"
             :input-props="{ autocomplete: 'username' }"
           />
         </n-form-item>
         <n-form-item path="email" label="">
           <n-input
             v-model:value="formData.email"
-            placeholder="邮箱地址"
+            :placeholder="t('auth.email')"
             :input-props="{ autocomplete: 'email' }"
           />
         </n-form-item>
@@ -101,7 +103,7 @@ async function handleSubmit() {
             v-model:value="formData.password"
             type="password"
             show-password-on="click"
-            placeholder="密码（至少 6 个字符）"
+            :placeholder="t('auth.password') + '（6+）'"
             :input-props="{ autocomplete: 'new-password' }"
           />
         </n-form-item>
@@ -110,7 +112,7 @@ async function handleSubmit() {
             v-model:value="formData.confirmPassword"
             type="password"
             show-password-on="click"
-            placeholder="确认密码"
+            :placeholder="t('auth.confirmPassword')"
             :input-props="{ autocomplete: 'new-password' }"
             @keyup.enter="handleSubmit"
           />
@@ -122,12 +124,12 @@ async function handleSubmit() {
             :loading="loading"
             @click="handleSubmit"
           >
-            注册
+            {{ t('auth.registerButton') }}
           </n-button>
         </n-form-item>
       </n-form>
       <n-space justify="center">
-        <router-link to="/login" class="link">已有账号？去登录</router-link>
+        <router-link to="/login" class="link">{{ t('auth.hasAccount') }}{{ t('auth.goLogin') }}</router-link>
       </n-space>
     </n-card>
   </div>
