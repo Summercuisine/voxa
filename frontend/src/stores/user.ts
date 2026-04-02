@@ -1,14 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-
-export interface User {
-  id: number
-  username: string
-  email: string
-  avatar?: string
-  bio?: string
-  createdAt?: string
-}
+import type { User } from '@/types'
+import * as authApi from '@/api/auth'
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -18,6 +11,7 @@ export const useUserStore = defineStore('user', () => {
   // Getters
   const isLoggedIn = computed(() => !!token.value && !!currentUser.value)
   const username = computed(() => currentUser.value?.username ?? '')
+  const isAdmin = computed(() => currentUser.value?.role === 'ADMIN')
 
   // Actions
   function setToken(newToken: string | null) {
@@ -33,10 +27,34 @@ export const useUserStore = defineStore('user', () => {
     currentUser.value = user
   }
 
+  async function login(email: string, password: string) {
+    const res = await authApi.login(email, password)
+    setToken(res.access_token)
+    setUser(res.user)
+    return res
+  }
+
+  async function register(username: string, email: string, password: string) {
+    const res = await authApi.register(username, email, password)
+    setToken(res.access_token)
+    setUser(res.user)
+    return res
+  }
+
   function logout() {
-    token.value = null
-    currentUser.value = null
-    localStorage.removeItem('token')
+    setToken(null)
+    setUser(null)
+  }
+
+  async function fetchProfile() {
+    try {
+      const user = await authApi.getProfile()
+      setUser(user)
+      return user
+    } catch {
+      logout()
+      throw new Error('Failed to fetch profile')
+    }
   }
 
   return {
@@ -44,8 +62,12 @@ export const useUserStore = defineStore('user', () => {
     token,
     isLoggedIn,
     username,
+    isAdmin,
     setToken,
     setUser,
+    login,
+    register,
     logout,
+    fetchProfile,
   }
 })
