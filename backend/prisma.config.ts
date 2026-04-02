@@ -10,5 +10,9 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"],
+    // Neon 需要直连用于 prisma db push / migrate
+    ...(process.env["DIRECT_DATABASE_URL"] && {
+      directUrl: process.env["DIRECT_DATABASE_URL"],
+    }),
   },
 });

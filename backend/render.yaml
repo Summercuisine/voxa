@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: voxa-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        sync: false
+      - key: AI_ENGINE
+        value: template
+      - key: DATABASE_URL
+        fromDatabase:
+          name: voxa-db
+          property: connectionString
+    healthCheckPath: /api/health
+
+databases:
+  - name: voxa-db
+    databaseName: voxa
+    plan: free
+    region: singapore
