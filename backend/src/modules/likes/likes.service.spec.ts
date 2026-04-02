@@ -1,12 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LikesService } from './likes.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { GamificationService } from '../gamification/gamification.service';
 
 describe('LikesService', () => {
   let service: LikesService;
   let prisma: PrismaService;
 
   const mockPrismaService = {
+    post: {
+      findUnique: jest.fn(),
+    },
     like: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -21,6 +25,10 @@ describe('LikesService', () => {
     },
   };
 
+  const mockGamificationService = {
+    addExperience: jest.fn().mockResolvedValue(null),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -28,6 +36,10 @@ describe('LikesService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: GamificationService,
+          useValue: mockGamificationService,
         },
       ],
     }).compile();
@@ -46,6 +58,7 @@ describe('LikesService', () => {
 
   describe('toggleLike', () => {
     it('should create a like and return { liked: true } when not already liked', async () => {
+      mockPrismaService.post.findUnique.mockResolvedValue({ id: 'p1', authorId: 'u2' });
       mockPrismaService.like.findUnique.mockResolvedValue(null);
       mockPrismaService.like.create.mockResolvedValue({ id: '1', userId: 'u1', postId: 'p1' });
 
@@ -58,6 +71,7 @@ describe('LikesService', () => {
     });
 
     it('should delete the like and return { liked: false } when already liked', async () => {
+      mockPrismaService.post.findUnique.mockResolvedValue({ id: 'p1', authorId: 'u2' });
       mockPrismaService.like.findUnique.mockResolvedValue({ id: '1', userId: 'u1', postId: 'p1' });
       mockPrismaService.like.delete.mockResolvedValue({ id: '1' });
 

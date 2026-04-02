@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { GamificationService } from '../gamification/gamification.service';
+import { BadgesService } from '../badges/badges.service';
 
 describe('PostsService', () => {
   let service: PostsService;
@@ -16,6 +18,18 @@ describe('PostsService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
+    postTag: {
+      deleteMany: jest.fn(),
+    },
+    $transaction: jest.fn((fn) => fn({ postTag: { deleteMany: jest.fn() }, post: { update: jest.fn() } })),
+  };
+
+  const mockGamificationService = {
+    addExperience: jest.fn().mockResolvedValue(null),
+  };
+
+  const mockBadgesService = {
+    checkAndAwardBadges: jest.fn().mockResolvedValue(null),
   };
 
   beforeEach(async () => {
@@ -25,6 +39,14 @@ describe('PostsService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: GamificationService,
+          useValue: mockGamificationService,
+        },
+        {
+          provide: BadgesService,
+          useValue: mockBadgesService,
         },
       ],
     }).compile();

@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { GamificationService } from '../gamification/gamification.service';
+import { BadgesService } from '../badges/badges.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -27,6 +29,14 @@ describe('AuthService', () => {
     get: jest.fn().mockReturnValue('7d'),
   };
 
+  const mockGamificationService = {
+    addExperience: jest.fn().mockResolvedValue(null),
+  };
+
+  const mockBadgesService = {
+    checkAndAwardBadges: jest.fn().mockResolvedValue(null),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,6 +52,14 @@ describe('AuthService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: GamificationService,
+          useValue: mockGamificationService,
+        },
+        {
+          provide: BadgesService,
+          useValue: mockBadgesService,
         },
       ],
     }).compile();
