@@ -9,6 +9,7 @@ export interface UpdateUserData {
   username?: string
   bio?: string
   avatar?: string
+  title?: string
 }
 
 export function updateUser(id: string, data: UpdateUserData) {

@@ -82,6 +82,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/BotsView.vue'),
   },
   {
+    path: '/leaderboard',
+    name: 'leaderboard',
+    component: () => import('@/views/LeaderboardView.vue'),
+  },
+  {
+    path: '/badges',
+    name: 'badges',
+    component: () => import('@/views/BadgesView.vue'),
+  },
+  {
     path: '/bots/:id',
     name: 'bot-detail',
     component: () => import('@/views/BotDetailView.vue'),

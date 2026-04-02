@@ -8,14 +8,14 @@ import {
   NInput,
   NAvatar,
   NTag,
-  NSpace,
   NEmpty,
   NSpin,
   NIcon,
   NButtonGroup,
-  NList,
-  NListItem,
   NDivider,
+  NPagination,
+  NSkeleton,
+  NTooltip,
 } from 'naive-ui'
 import {
   HeartOutline,
@@ -26,10 +26,12 @@ import {
   ArrowBackOutline,
   ChatbubbleOutline,
   EyeOutline,
+  CreateOutline,
+  TrashOutline,
 } from '@vicons/ionicons5'
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
-import { getPost, likePost, unlikePost, favoritePost, unfavoritePost } from '@/api/posts'
+import { getPost, deletePost } from '@/api/posts'
 import { getLikeStatus, togglePostLike, toggleBookmark } from '@/api/likes'
 import { getComments, createComment } from '@/api/comments'
 import { useUserStore } from '@/stores/user'
@@ -58,48 +60,56 @@ const commentsLoading = ref(false)
 const newComment = ref('')
 const replyTo = ref<Comment | null>(null)
 const submittingComment = ref(false)
+const commentPage = ref(1)
+const commentTotalPages = ref(1)
+const commentPageSize = 20
 
-// 获取帖子详情
-async function fetchPost() {
+// 是否可以编辑/删除
+const canEdit = computed(() => {
+  if (!userStore.isLoggedIn || !post.value) return false
+  return post.value.authorId === userStore.currentUser?.id || userStore.isAdmin
+})
+
+// 获取等级颜色
+function getLevelColor(level: number): string {
+  if (level >= 20) return '#e74c3c'
+  if (level >= 15) return '#e67e22'
+  if (level >= 10) return '#9b59b6'
+  if (level >= 5) return '#3498db'
+  return '#27ae60'
+}
+
+// 并行获取帖子详情、点赞状态、评论
+async function fetchAllData() {
   loading.value = true
+  commentsLoading.value = true
   try {
-    const res = await getPost(postId.value)
-    post.value = res
-    likeCount.value = res._count.likes
-    bookmarkCount.value = res._count.bookmarks
+    const [postRes, likeRes, commentsRes] = await Promise.all([
+      getPost(postId.value),
+      userStore.isLoggedIn
+        ? getLikeStatus(postId.value).catch(() => null)
+        : Promise.resolve(null),
+      getComments(postId.value, { page: commentPage.value, limit: commentPageSize }),
+    ])
+
+    post.value = postRes
+    likeCount.value = postRes._count.likes
+    bookmarkCount.value = postRes._count.bookmarks
+
+    if (likeRes) {
+      isLiked.value = likeRes.isLiked
+      isFavorited.value = likeRes.isBookmarked
+      likeCount.value = likeRes.likeCount
+      bookmarkCount.value = likeRes.bookmarkCount
+    }
+
+    comments.value = buildCommentTree(commentsRes.data)
+    commentTotalPages.value = commentsRes.meta.totalPages
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : '获取帖子详情失败'
     message.error(errorMsg)
   } finally {
     loading.value = false
-  }
-}
-
-// 获取点赞/收藏状态
-async function fetchLikeStatus() {
-  if (!userStore.isLoggedIn) return
-  try {
-    const res = await getLikeStatus(postId.value)
-    isLiked.value = res.isLiked
-    isFavorited.value = res.isBookmarked
-    likeCount.value = res.likeCount
-    bookmarkCount.value = res.bookmarkCount
-  } catch {
-    // 静默处理，使用帖子数据中的计数
-  }
-}
-
-// 获取评论
-async function fetchComments() {
-  commentsLoading.value = true
-  try {
-    const res = await getComments(postId.value, { page: 1, limit: 100 })
-    // 构建评论树
-    comments.value = buildCommentTree(res.data)
-  } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : '获取评论失败'
-    message.error(errorMsg)
-  } finally {
     commentsLoading.value = false
   }
 }
@@ -109,12 +119,10 @@ function buildCommentTree(flatComments: Comment[]): Comment[] {
   const commentMap = new Map<string, Comment>()
   const rootComments: Comment[] = []
 
-  // 先创建所有评论的映射
   for (const comment of flatComments) {
     commentMap.set(comment.id, { ...comment, replies: [] })
   }
 
-  // 构建树形结构
   for (const comment of flatComments) {
     const node = commentMap.get(comment.id)
     if (node) {
@@ -177,6 +185,23 @@ async function handleShare() {
   }
 }
 
+// 编辑帖子
+function handleEdit() {
+  router.push(`/post/${postId.value}/edit`)
+}
+
+// 删除帖子
+async function handleDelete() {
+  try {
+    await deletePost(postId.value)
+    message.success('帖子已删除')
+    router.push('/')
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : '删除失败'
+    message.error(errorMsg)
+  }
+}
+
 // 回复评论
 function handleReply(comment: Comment) {
   if (!userStore.isLoggedIn) {
@@ -211,7 +236,10 @@ async function handleSubmitComment() {
     message.success('评论成功')
     newComment.value = ''
     replyTo.value = null
-    await fetchComments()
+    // 重新加载评论
+    const res = await getComments(postId.value, { page: commentPage.value, limit: commentPageSize })
+    comments.value = buildCommentTree(res.data)
+    commentTotalPages.value = res.meta.totalPages
     if (post.value) post.value._count.comments++
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : '评论失败'
@@ -219,6 +247,23 @@ async function handleSubmitComment() {
   } finally {
     submittingComment.value = false
   }
+}
+
+// 评论分页
+function handleCommentPageChange(page: number) {
+  commentPage.value = page
+  commentsLoading.value = true
+  getComments(postId.value, { page, limit: commentPageSize })
+    .then((res) => {
+      comments.value = buildCommentTree(res.data)
+      commentTotalPages.value = res.meta.totalPages
+    })
+    .catch(() => {
+      message.error('获取评论失败')
+    })
+    .finally(() => {
+      commentsLoading.value = false
+    })
 }
 
 // 返回
@@ -232,16 +277,32 @@ function goToUser(userId: string) {
 }
 
 onMounted(() => {
-  fetchPost()
-  fetchComments()
-  fetchLikeStatus()
+  fetchAllData()
 })
 </script>
 
 <template>
   <div class="post-detail-view">
     <n-spin :show="loading">
-      <template v-if="post">
+      <!-- 骨架屏 -->
+      <template v-if="loading">
+        <div class="post-detail__back">
+          <n-skeleton text style="width: 60px" />
+        </div>
+        <n-skeleton text style="width: 70%; height: 32px; margin-bottom: 16px" />
+        <div class="post-detail__meta">
+          <div class="post-detail__author">
+            <n-skeleton circle size="medium" />
+            <div>
+              <n-skeleton text style="width: 100px" />
+              <n-skeleton text style="width: 80px" />
+            </div>
+          </div>
+        </div>
+        <n-skeleton text :repeat="8" style="margin-bottom: 16px" />
+      </template>
+
+      <template v-else-if="post">
         <!-- 返回按钮 -->
         <div class="post-detail__back">
           <n-button text @click="goBack">
@@ -252,8 +313,32 @@ onMounted(() => {
           </n-button>
         </div>
 
-        <!-- 帖子标题 -->
-        <h1 class="post-detail__title">{{ post.title }}</h1>
+        <!-- 帖子标题和操作 -->
+        <div class="post-detail__title-row">
+          <h1 class="post-detail__title">{{ post.title }}</h1>
+          <div v-if="canEdit" class="post-detail__edit-actions">
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <n-button text size="small" @click="handleEdit">
+                  <template #icon>
+                    <n-icon :component="CreateOutline" />
+                  </template>
+                </n-button>
+              </template>
+              编辑
+            </n-tooltip>
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <n-button text size="small" type="error" @click="handleDelete">
+                  <template #icon>
+                    <n-icon :component="TrashOutline" />
+                  </template>
+                </n-button>
+              </template>
+              删除
+            </n-tooltip>
+          </div>
+        </div>
 
         <!-- 作者信息 -->
         <div class="post-detail__meta">
@@ -264,7 +349,16 @@ onMounted(() => {
               round
             />
             <div class="post-detail__author-info">
-              <span class="post-detail__username">{{ post.author?.username || '匿名用户' }}</span>
+              <div class="post-detail__author-name-row">
+                <span class="post-detail__username">{{ post.author?.username || '匿名用户' }}</span>
+                <n-tag
+                  :bordered="false"
+                  size="small"
+                  :color="{ color: getLevelColor(post.author?.level ?? 1) + '20', textColor: getLevelColor(post.author?.level ?? 1) }"
+                >
+                  Lv{{ post.author?.level ?? 1 }}
+                </n-tag>
+              </div>
               <span class="post-detail__time">{{ formatRelativeTime(post.createdAt) }}</span>
             </div>
           </div>
@@ -276,6 +370,10 @@ onMounted(() => {
             <span class="post-detail__stat">
               <n-icon :component="ChatbubbleOutline" />
               {{ post._count.comments }}
+            </span>
+            <span class="post-detail__stat">
+              <n-icon :component="HeartOutline" />
+              {{ post._count.likes }}
             </span>
           </div>
         </div>
@@ -382,6 +480,16 @@ onMounted(() => {
               />
             </div>
           </n-spin>
+
+          <!-- 评论分页 -->
+          <div v-if="commentTotalPages > 1" class="comment-pagination">
+            <n-pagination
+              :page="commentPage"
+              :page-count="commentTotalPages"
+              :page-size="commentPageSize"
+              @update:page="handleCommentPageChange"
+            />
+          </div>
         </div>
       </template>
     </n-spin>
@@ -398,12 +506,27 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
+.post-detail__title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .post-detail__title {
   font-size: 28px;
   font-weight: 700;
   color: #1a1a1a;
-  margin: 0 0 16px 0;
+  margin: 0;
   line-height: 1.4;
+  flex: 1;
+}
+
+.post-detail__edit-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .post-detail__meta {
@@ -427,6 +550,12 @@ onMounted(() => {
 .post-detail__author-info {
   display: flex;
   flex-direction: column;
+}
+
+.post-detail__author-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .post-detail__username {
@@ -518,6 +647,32 @@ onMounted(() => {
   flex-direction: column;
   gap: 16px;
 }
+
+.comment-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .post-detail__title {
+    font-size: 22px;
+  }
+
+  .post-detail__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .comment-item--depth-1,
+  .comment-item--depth-2,
+  .comment-item--depth-3,
+  .comment-item--depth-4 {
+    margin-left: 16px;
+  }
+}
 </style>
 
 <style>
@@ -607,16 +762,6 @@ onMounted(() => {
 
 /* 响应式 */
 @media (max-width: 640px) {
-  .post-detail__title {
-    font-size: 22px;
-  }
-
-  .post-detail__meta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
   .comment-item--depth-1,
   .comment-item--depth-2,
   .comment-item--depth-3,

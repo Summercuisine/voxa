@@ -7,27 +7,37 @@ import {
   NButton,
   NAvatar,
   NTag,
-  NSpace,
   NEmpty,
   NSpin,
   NIcon,
   NPagination,
-  NStatistic,
+  NProgress,
+  NTooltip,
 } from 'naive-ui'
-import { CalendarOutline, DocumentTextOutline } from '@vicons/ionicons5'
+import { CalendarOutline, DocumentTextOutline, MailOutline } from '@vicons/ionicons5'
 import { getUser, getUserPosts } from '@/api/users'
+import { getMyLevel } from '@/api/gamification'
+import { getMyBadges } from '@/api/badges'
+import { useUserStore } from '@/stores/user'
 import { formatRelativeTime, getUserAvatar } from '@/utils'
-import type { User, PostListItem } from '@/types'
+import type { User, PostListItem, UserLevel, Badge } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const userStore = useUserStore()
 
 const userId = computed(() => route.params.id as string)
 
 // 用户状态
 const user = ref<User | null>(null)
 const loading = ref(false)
+
+// 等级状态
+const userLevel = ref<UserLevel | null>(null)
+
+// 徽章状态
+const badges = ref<Badge[]>([])
 
 // 帖子状态
 const posts = ref<PostListItem[]>([])
@@ -36,6 +46,9 @@ const currentPage = ref(1)
 const totalPages = ref(1)
 const totalPosts = ref(0)
 const pageSize = 20
+
+// 是否是自己的主页
+const isOwnProfile = computed(() => userStore.currentUser?.id === userId.value)
 
 // 获取用户信息
 async function fetchUser() {
@@ -48,6 +61,26 @@ async function fetchUser() {
     message.error(errorMsg)
   } finally {
     loading.value = false
+  }
+}
+
+// 获取等级信息
+async function fetchUserLevel() {
+  try {
+    const res = await getMyLevel()
+    userLevel.value = res
+  } catch {
+    // 静默处理
+  }
+}
+
+// 获取徽章
+async function fetchBadges() {
+  try {
+    const res = await getMyBadges()
+    badges.value = res
+  } catch {
+    // 静默处理
   }
 }
 
@@ -82,9 +115,36 @@ function goToPost(post: PostListItem) {
   router.push(`/post/${post.id}`)
 }
 
+// 跳转徽章页
+function goToBadges() {
+  router.push('/badges')
+}
+
+// 发私信
+function goToMessage() {
+  router.push(`/messages/${userId.value}`)
+}
+
+// 获取等级颜色
+function getLevelColor(level: number): string {
+  if (level >= 20) return '#e74c3c'
+  if (level >= 15) return '#e67e22'
+  if (level >= 10) return '#9b59b6'
+  if (level >= 5) return '#3498db'
+  return '#27ae60'
+}
+
+// 显示的徽章（最多 8 个）
+const displayBadges = computed(() => badges.value.slice(0, 8))
+const hasMoreBadges = computed(() => badges.value.length > 8)
+
 onMounted(() => {
   fetchUser()
   fetchPosts()
+  if (isOwnProfile.value) {
+    fetchUserLevel()
+    fetchBadges()
+  }
 })
 </script>
 
@@ -101,8 +161,40 @@ onMounted(() => {
               round
             />
             <div class="user-card__info">
-              <h1 class="user-card__name">{{ user.username }}</h1>
+              <div class="user-card__name-row">
+                <h1 class="user-card__name">{{ user.username }}</h1>
+                <n-tag
+                  :bordered="false"
+                  size="small"
+                  :color="{ color: getLevelColor(user.level) + '20', textColor: getLevelColor(user.level) }"
+                >
+                  Lv{{ user.level }}
+                </n-tag>
+                <span v-if="user.title" class="user-card__title">{{ user.title }}</span>
+              </div>
               <p v-if="user.bio" class="user-card__bio">{{ user.bio }}</p>
+
+              <!-- 经验值进度条 -->
+              <div v-if="isOwnProfile && userLevel" class="user-card__exp">
+                <div class="user-card__exp-header">
+                  <span class="user-card__exp-label">经验值</span>
+                  <span class="user-card__exp-text">
+                    {{ userLevel.experience }} / {{ userLevel.nextLevelConfig?.maxExp ?? userLevel.levelConfig.maxExp }}
+                  </span>
+                </div>
+                <n-progress
+                  type="line"
+                  :percentage="userLevel.progress"
+                  :color="getLevelColor(user.level)"
+                  :show-indicator="false"
+                  :height="8"
+                  :border-radius="4"
+                />
+                <span class="user-card__exp-next">
+                  距下一级还需 {{ userLevel.expToNext }} 经验
+                </span>
+              </div>
+
               <div class="user-card__meta">
                 <span class="user-card__stat">
                   <n-icon :component="CalendarOutline" />
@@ -113,6 +205,40 @@ onMounted(() => {
                   {{ totalPosts }} 篇帖子
                 </span>
               </div>
+
+              <!-- 操作按钮 -->
+              <div class="user-card__actions">
+                <n-button
+                  v-if="!isOwnProfile"
+                  size="small"
+                  type="primary"
+                  secondary
+                  @click="goToMessage"
+                >
+                  <template #icon>
+                    <n-icon :component="MailOutline" />
+                  </template>
+                  发私信
+                </n-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 徽章展示区 -->
+          <div v-if="isOwnProfile && displayBadges.length > 0" class="user-card__badges">
+            <div class="user-card__badges-header">
+              <span class="user-card__badges-title">徽章</span>
+              <n-button v-if="hasMoreBadges" text size="small" @click="goToBadges">
+                查看全部
+              </n-button>
+            </div>
+            <div class="user-card__badges-list">
+              <n-tooltip v-for="badge in displayBadges" :key="badge.id" trigger="hover">
+                <template #trigger>
+                  <span class="user-card__badge-item">{{ badge.icon }}</span>
+                </template>
+                {{ badge.name }}
+              </n-tooltip>
             </div>
           </div>
         </n-card>
@@ -155,6 +281,7 @@ onMounted(() => {
                 </div>
 
                 <div class="post-card__footer">
+                  <span class="post-card__stat" title="点赞数">❤️ {{ post._count.likes }}</span>
                   <span class="post-card__stat" title="评论数">💬 {{ post._count.comments }}</span>
                   <span class="post-card__stat" title="浏览数">👁 {{ post.viewCount }}</span>
                   <span class="post-card__time">{{ formatRelativeTime(post.createdAt) }}</span>
@@ -199,11 +326,24 @@ onMounted(() => {
   flex: 1;
 }
 
+.user-card__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .user-card__name {
   font-size: 24px;
   font-weight: 700;
   color: #1a1a1a;
-  margin: 0 0 8px 0;
+  margin: 0;
+}
+
+.user-card__title {
+  font-size: 13px;
+  color: #9b59b6;
+  font-weight: 500;
 }
 
 .user-card__bio {
@@ -211,6 +351,36 @@ onMounted(() => {
   color: #666;
   margin: 0 0 12px 0;
   line-height: 1.6;
+}
+
+.user-card__exp {
+  margin-bottom: 12px;
+  max-width: 300px;
+}
+
+.user-card__exp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.user-card__exp-label {
+  font-size: 12px;
+  color: #999;
+}
+
+.user-card__exp-text {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.user-card__exp-next {
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
+  display: block;
 }
 
 .user-card__meta {
@@ -224,6 +394,47 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.user-card__actions {
+  margin-top: 12px;
+}
+
+/* 徽章区 */
+.user-card__badges {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.user-card__badges-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.user-card__badges-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+}
+
+.user-card__badges-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-card__badge-item {
+  font-size: 28px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.user-card__badge-item:hover {
+  transform: scale(1.2);
 }
 
 .user-posts__title {
@@ -319,8 +530,16 @@ onMounted(() => {
     text-align: center;
   }
 
+  .user-card__name-row {
+    justify-content: center;
+  }
+
   .user-card__meta {
     justify-content: center;
+  }
+
+  .user-card__exp {
+    max-width: 100%;
   }
 
   .user-card__name {

@@ -16,6 +16,7 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import { QueryPostDto } from './dto/query-post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @ApiTags('帖子')
 @Controller('posts')
@@ -68,6 +69,7 @@ export class PostsController {
   @Patch(':id/pin')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Roles('ADMIN')
   @ApiOperation({ summary: '置顶/取消置顶帖子' })
   togglePin(@Param('id') id: string) {
     return this.postsService.togglePin(id);
@@ -76,6 +78,7 @@ export class PostsController {
   @Patch(':id/lock')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Roles('ADMIN')
   @ApiOperation({ summary: '锁定/解锁帖子' })
   toggleLock(@Param('id') id: string) {
     return this.postsService.toggleLock(id);

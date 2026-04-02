@@ -1,11 +1,24 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { GamificationService } from '../gamification/gamification.service.js';
 
 @Injectable()
 export class LikesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gamificationService: GamificationService,
+  ) {}
 
   async toggleLike(userId: string, postId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true, authorId: true },
+    });
+
+    if (!post) {
+      throw new NotFoundException('帖子不存在');
+    }
+
     const existing = await this.prisma.like.findUnique({
       where: { userId_postId: { userId, postId } },
     });
@@ -20,10 +33,30 @@ export class LikesService {
     await this.prisma.like.create({
       data: { userId, postId },
     });
+
+    // 点赞成功后给帖子作者加经验
+    if (post.authorId !== userId) {
+      await this.gamificationService.addExperience(
+        post.authorId,
+        2,
+        'LIKE_RECEIVED',
+        '帖子被赞',
+      );
+    }
+
     return { liked: true };
   }
 
   async toggleCommentLike(userId: string, commentId: string) {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { id: true },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('评论不存在');
+    }
+
     const existing = await this.prisma.like.findUnique({
       where: { userId_commentId: { userId, commentId } },
     });
@@ -42,6 +75,15 @@ export class LikesService {
   }
 
   async toggleBookmark(userId: string, postId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true },
+    });
+
+    if (!post) {
+      throw new NotFoundException('帖子不存在');
+    }
+
     const existing = await this.prisma.bookmark.findUnique({
       where: { userId_postId: { userId, postId } },
     });

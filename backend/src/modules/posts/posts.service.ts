@@ -3,35 +3,49 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service';
-import { CreatePostDto } from './dto/create-post.dto';
-import { UpdatePostDto } from './dto/update-post.dto';
-import { QueryPostDto } from './dto/query-post.dto';
+import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { CreatePostDto } from './dto/create-post.dto.js';
+import { UpdatePostDto } from './dto/update-post.dto.js';
+import { QueryPostDto } from './dto/query-post.dto.js';
 import { Prisma } from '../../../generated/prisma/client.js';
+import { GamificationService } from '../gamification/gamification.service.js';
+import { BadgesService } from '../badges/badges.service.js';
 
 @Injectable()
 export class PostsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gamificationService: GamificationService,
+    private readonly badgesService: BadgesService,
+  ) {}
 
-  async create(userId: string, dto: CreatePostDto) {
-    const slug =
-      dto.title
+  private generateSlug(title: string): string {
+    return (
+      title
         .toLowerCase()
         .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
         .replace(/^-|-$/g, '') +
       '-' +
-      Date.now();
+      Date.now()
+    );
+  }
 
-    // 处理 tags：查找或创建
+  private generateTagSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  async create(userId: string, dto: CreatePostDto) {
+    const slug = this.generateSlug(dto.title);
+
     const tagOperations = dto.tags
       ? dto.tags.map((tagName) => ({
           where: { name: tagName },
           create: {
             name: tagName,
-            slug: tagName
-              .toLowerCase()
-              .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
-              .replace(/^-|-$/g, ''),
+            slug: this.generateTagSlug(tagName),
           },
         }))
       : [];
@@ -59,9 +73,18 @@ export class PostsService {
         },
         category: true,
         tags: { include: { tag: true } },
-        _count: { select: { comments: true, likes: true } },
+        _count: { select: { comments: true, likes: true, bookmarks: true } },
       },
     });
+
+    // 发帖经验 + 检查徽章
+    await this.gamificationService.addExperience(
+      userId,
+      5,
+      'POST_CREATED',
+      '发布帖子',
+    );
+    await this.badgesService.checkAndAwardBadges(userId);
 
     return post;
   }
@@ -73,12 +96,10 @@ export class PostsService {
 
     const where: Prisma.PostWhereInput = {};
 
-    // 按分类筛选
     if (query.category) {
       where.categoryId = query.category;
     }
 
-    // 按标签筛选
     if (query.tag) {
       where.tags = {
         some: {
@@ -87,7 +108,6 @@ export class PostsService {
       };
     }
 
-    // 搜索关键词
     if (query.search) {
       where.OR = [
         { title: { contains: query.search, mode: 'insensitive' } },
@@ -95,7 +115,6 @@ export class PostsService {
       ];
     }
 
-    // 排序
     let orderBy: Prisma.PostOrderByWithRelationInput | Prisma.PostOrderByWithRelationInput[];
     switch (query.sort) {
       case 'popular':
@@ -121,7 +140,7 @@ export class PostsService {
             select: { id: true, username: true, avatar: true },
           },
           category: true,
-          _count: { select: { comments: true, likes: true } },
+          _count: { select: { comments: true, likes: true, bookmarks: true } },
         },
       }),
       this.prisma.post.count({ where }),
@@ -164,7 +183,7 @@ export class PostsService {
             },
           },
         },
-        _count: { select: { comments: true, likes: true } },
+        _count: { select: { comments: true, likes: true, bookmarks: true } },
       },
     });
 
@@ -172,7 +191,7 @@ export class PostsService {
       throw new NotFoundException('帖子不存在');
     }
 
-    // 增加浏览量
+    // 原子操作更新浏览量
     await this.prisma.post.update({
       where: { id },
       data: { viewCount: { increment: 1 } },
@@ -192,7 +211,6 @@ export class PostsService {
       throw new ForbiddenException('只能更新自己的帖子');
     }
 
-    // 处理 tags 更新
     const updateData: Prisma.PostUpdateInput = {
       ...(dto.title && { title: dto.title }),
       ...(dto.content && { content: dto.content }),
@@ -204,25 +222,29 @@ export class PostsService {
     };
 
     if (dto.tags) {
-      // 先删除旧的关联
-      await this.prisma.postTag.deleteMany({ where: { postId: id } });
+      // 使用事务包裹标签删除和创建
+      await this.prisma.$transaction(async (tx) => {
+        await tx.postTag.deleteMany({ where: { postId: id } });
 
-      (updateData as any).tags = {
-        create: dto.tags.map((tagName) => ({
-          tag: {
-            connectOrCreate: {
-              where: { name: tagName },
-              create: {
-                name: tagName,
-                slug: tagName
-                  .toLowerCase()
-                  .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
-                  .replace(/^-|-$/g, ''),
-              },
+        await tx.post.update({
+          where: { id },
+          data: {
+            tags: {
+              create: dto.tags!.map((tagName) => ({
+                tag: {
+                  connectOrCreate: {
+                    where: { name: tagName },
+                    create: {
+                      name: tagName,
+                      slug: this.generateTagSlug(tagName),
+                    },
+                  },
+                },
+              })),
             },
           },
-        })),
-      };
+        });
+      });
     }
 
     return this.prisma.post.update({
@@ -234,7 +256,7 @@ export class PostsService {
         },
         category: true,
         tags: { include: { tag: true } },
-        _count: { select: { comments: true, likes: true } },
+        _count: { select: { comments: true, likes: true, bookmarks: true } },
       },
     });
   }
@@ -273,7 +295,7 @@ export class PostsService {
           select: { id: true, username: true, avatar: true },
         },
         category: true,
-        _count: { select: { comments: true, likes: true } },
+        _count: { select: { comments: true, likes: true, bookmarks: true } },
       },
     });
 
@@ -295,7 +317,7 @@ export class PostsService {
           select: { id: true, username: true, avatar: true },
         },
         category: true,
-        _count: { select: { comments: true, likes: true } },
+        _count: { select: { comments: true, likes: true, bookmarks: true } },
       },
     });
 

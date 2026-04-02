@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
-import { LikesController } from './likes.controller.js';
-import { LikesService } from './likes.service.js';
+import { BadgesController } from './badges.controller.js';
+import { BadgesService } from './badges.service.js';
 import { PrismaModule } from '../../common/prisma/prisma.module.js';
 import { GamificationModule } from '../gamification/gamification.module.js';
 
 @Module({
   imports: [PrismaModule, GamificationModule],
-  controllers: [LikesController],
-  providers: [LikesService],
+  controllers: [BadgesController],
+  providers: [BadgesService],
+  exports: [BadgesService],
 })
-export class LikesModule {}
+export class BadgesModule {}

@@ -116,6 +116,12 @@ onUnmounted(() => {
         <n-button quaternary size="small" @click="router.push('/bots')">
           {{ t('nav.bots') }}
         </n-button>
+        <n-button quaternary size="small" @click="router.push('/leaderboard')">
+          排行榜
+        </n-button>
+        <n-button quaternary size="small" @click="router.push('/badges')">
+          徽章
+        </n-button>
         <n-tooltip v-if="userStore.isAdmin" trigger="hover">
           <template #trigger>
             <n-button quaternary size="small" @click="router.push('/admin')">

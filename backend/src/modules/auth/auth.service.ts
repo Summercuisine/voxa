@@ -1,9 +1,11 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../common/prisma/prisma.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
+import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { RegisterDto } from './dto/register.dto.js';
+import { LoginDto } from './dto/login.dto.js';
+import { GamificationService } from '../gamification/gamification.service.js';
+import { BadgesService } from '../badges/badges.service.js';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -13,6 +15,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly gamificationService: GamificationService,
+    private readonly badgesService: BadgesService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -48,6 +52,17 @@ export class AuthService {
         updatedAt: true,
       },
     });
+
+    // 注册奖励经验
+    await this.gamificationService.addExperience(
+      user.id,
+      10,
+      'DAILY_LOGIN',
+      '注册奖励',
+    );
+
+    // 检查徽章
+    await this.badgesService.checkAndAwardBadges(user.id);
 
     return user;
   }
@@ -106,13 +121,11 @@ export class AuthService {
     email: string;
     avatar?: string;
   }) {
-    // 先按 email 查找用户
     let user = await this.prisma.user.findUnique({
       where: { email: profile.email },
     });
 
     if (!user) {
-      // 生成唯一用户名
       let username = profile.username;
       const existingUser = await this.prisma.user.findUnique({
         where: { username },
@@ -121,7 +134,6 @@ export class AuthService {
         username = `${profile.username}_${profile.provider}${Date.now()}`;
       }
 
-      // 创建新用户，密码设为随机字符串
       const randomPassword = crypto.randomBytes(32).toString('hex');
       const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
@@ -135,7 +147,6 @@ export class AuthService {
       });
     }
 
-    // 生成 JWT token
     const payload = { sub: user.id, username: user.username };
     const access_token = this.jwtService.sign(payload);
 

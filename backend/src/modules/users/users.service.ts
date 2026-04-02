@@ -1,33 +1,44 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { UpdateUserDto } from './dto/update-user.dto.js';
+import { QueryUserDto } from './dto/query-user.dto.js';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: { page?: number; limit?: number }) {
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 10;
+  async findAll(query: QueryUserDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+
+    if (query.search) {
+      where.OR = [
+        { username: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
+        where,
         skip,
         take: limit,
         select: {
           id: true,
           username: true,
-          email: true,
           avatar: true,
           bio: true,
           role: true,
+          level: true,
+          title: true,
           createdAt: true,
           updatedAt: true,
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.user.count(),
+      this.prisma.user.count({ where }),
     ]);
 
     return {
@@ -51,6 +62,9 @@ export class UsersService {
         avatar: true,
         bio: true,
         role: true,
+        level: true,
+        experience: true,
+        title: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -109,6 +123,9 @@ export class UsersService {
         avatar: true,
         bio: true,
         role: true,
+        level: true,
+        experience: true,
+        title: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -117,9 +134,9 @@ export class UsersService {
     return updatedUser;
   }
 
-  async getProfilePosts(id: string, query: { page?: number; limit?: number }) {
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 10;
+  async getProfilePosts(id: string, query: QueryUserDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
 
     const user = await this.prisma.user.findUnique({
@@ -145,6 +162,13 @@ export class UsersService {
           viewCount: true,
           createdAt: true,
           updatedAt: true,
+          author: {
+            select: {
+              id: true,
+              username: true,
+              avatar: true,
+            },
+          },
           category: {
             select: {
               id: true,

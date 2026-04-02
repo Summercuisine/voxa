@@ -43,19 +43,3 @@ export function updatePost(id: string, data: UpdatePostData) {
 export function deletePost(id: string) {
   return apiClient.delete<unknown, void>(`/posts/${id}`)
 }
-
-export function likePost(id: string) {
-  return apiClient.post<unknown, void>(`/posts/${id}/likes`)
-}
-
-export function unlikePost(id: string) {
-  return apiClient.delete<unknown, void>(`/posts/${id}/likes`)
-}
-
-export function favoritePost(id: string) {
-  return apiClient.post<unknown, void>(`/posts/${id}/favorites`)
-}
-
-export function unfavoritePost(id: string) {
-  return apiClient.delete<unknown, void>(`/posts/${id}/favorites`)
-}

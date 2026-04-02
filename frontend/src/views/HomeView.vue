@@ -9,21 +9,18 @@ import {
   NPagination,
   NAvatar,
   NTag,
-  NSpace,
   NEmpty,
   NSpin,
   NTabs,
   NTabPane,
   NIcon,
-  NGrid,
-  NGridItem,
 } from 'naive-ui'
 import { SearchOutline, CreateOutline } from '@vicons/ionicons5'
 import { getPosts } from '@/api/posts'
 import { getCategories } from '@/api/categories'
 import { useUserStore } from '@/stores/user'
 import { useI18n } from 'vue-i18n'
-import { formatRelativeTime, truncateText, getUserAvatar } from '@/utils'
+import { formatRelativeTime, getUserAvatar } from '@/utils'
 import type { PostListItem, Category } from '@/types'
 
 const router = useRouter()
@@ -41,6 +38,16 @@ const currentPage = ref(1)
 const totalPages = ref(1)
 const totalPosts = ref(0)
 const pageSize = 20
+const sortMode = ref<'latest' | 'popular' | 'pinned'>('latest')
+
+// 获取等级颜色
+function getLevelColor(level: number): string {
+  if (level >= 20) return '#e74c3c'
+  if (level >= 15) return '#e67e22'
+  if (level >= 10) return '#9b59b6'
+  if (level >= 5) return '#3498db'
+  return '#27ae60'
+}
 
 // 获取帖子列表
 async function fetchPosts() {
@@ -51,6 +58,7 @@ async function fetchPosts() {
       limit: pageSize,
       categoryId: activeCategory.value ?? undefined,
       search: searchQuery.value || undefined,
+      sort: sortMode.value === 'pinned' ? 'latest' : sortMode.value,
     })
     posts.value = res.data
     totalPosts.value = res.meta.total
@@ -86,6 +94,13 @@ function handleCategoryChange(id: string | number) {
   } else {
     activeCategory.value = String(id)
   }
+  currentPage.value = 1
+  fetchPosts()
+}
+
+// 切换排序
+function handleSortChange(key: string) {
+  sortMode.value = key as 'latest' | 'popular' | 'pinned'
   currentPage.value = 1
   fetchPosts()
 }
@@ -148,6 +163,19 @@ onMounted(() => {
       </n-button>
     </div>
 
+    <!-- 排序切换 -->
+    <div class="sort-tabs">
+      <n-tabs
+        type="segment"
+        :value="sortMode"
+        @update:value="handleSortChange"
+      >
+        <n-tab-pane name="latest" tab="最新" />
+        <n-tab-pane name="popular" tab="最热" />
+        <n-tab-pane name="pinned" tab="置顶" />
+      </n-tabs>
+    </div>
+
     <!-- 分类筛选 -->
     <div class="category-tabs">
       <n-tabs
@@ -186,6 +214,13 @@ onMounted(() => {
                   round
                 />
                 <span class="post-card__username">{{ post.author?.username || '匿名用户' }}</span>
+                <n-tag
+                  :bordered="false"
+                  size="tiny"
+                  :color="{ color: getLevelColor(post.author?.level ?? 1) + '20', textColor: getLevelColor(post.author?.level ?? 1) }"
+                >
+                  Lv{{ post.author?.level ?? 1 }}
+                </n-tag>
               </div>
               <div class="post-card__meta">
                 <n-tag
@@ -220,11 +255,14 @@ onMounted(() => {
             </div>
 
             <div class="post-card__footer">
-              <span class="post-card__stat" :title="t('post.comments')">
-                {{ post._count.comments }}
+              <span class="post-card__stat" title="点赞数">
+                ❤️ {{ post._count.likes }}
               </span>
-              <span class="post-card__stat" :title="t('post.views')">
-                {{ post.viewCount }}
+              <span class="post-card__stat" title="评论数">
+                💬 {{ post._count.comments }}
+              </span>
+              <span class="post-card__stat" title="浏览数">
+                👁 {{ post.viewCount }}
               </span>
               <span class="post-card__time">
                 {{ formatRelativeTime(post.createdAt) }}
@@ -267,6 +305,10 @@ onMounted(() => {
   gap: 8px;
   flex: 1;
   max-width: 480px;
+}
+
+.sort-tabs {
+  margin-bottom: 12px;
 }
 
 .category-tabs {

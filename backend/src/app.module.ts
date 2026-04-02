@@ -19,6 +19,9 @@ import { AIModule } from './modules/ai/ai.module';
 import { BotsModule } from './modules/bots/bots.module';
 import { RssModule } from './modules/rss/rss.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { GamificationModule } from './modules/gamification/gamification.module.js';
+import { LeaderboardModule } from './modules/leaderboard/leaderboard.module.js';
+import { BadgesModule } from './modules/badges/badges.module.js';
 
 @Module({
   imports: [
@@ -41,6 +44,9 @@ import { AdminModule } from './modules/admin/admin.module';
     BotsModule,
     RssModule,
     AdminModule,
+    GamificationModule,
+    LeaderboardModule,
+    BadgesModule,
   ],
   controllers: [AppController],
   providers: [

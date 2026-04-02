@@ -6,12 +6,13 @@ import {
   Body,
   Query,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { UsersService } from './users.service';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UsersService } from './users.service.js';
+import { UpdateUserDto } from './dto/update-user.dto.js';
+import { QueryUserDto } from './dto/query-user.dto.js';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 @ApiTags('用户')
 @Controller('api/users')
@@ -20,8 +21,8 @@ export class UsersController {
 
   @Get()
   @ApiOperation({ summary: '获取用户列表（分页）' })
-  async findAll(@Query() query: { page?: string; limit?: string }) {
-    return this.usersService.findAll(query as any);
+  async findAll(@Query() query: QueryUserDto) {
+    return this.usersService.findAll(query);
   }
 
   @Get(':id')
@@ -37,17 +38,17 @@ export class UsersController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
-    @Request() req: any,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.usersService.update(id, dto, req.user.id);
+    return this.usersService.update(id, dto, userId);
   }
 
   @Get(':id/posts')
   @ApiOperation({ summary: '获取用户的帖子列表' })
   async getProfilePosts(
     @Param('id') id: string,
-    @Query() query: { page?: string; limit?: string },
+    @Query() query: QueryUserDto,
   ) {
-    return this.usersService.getProfilePosts(id, query as any);
+    return this.usersService.getProfilePosts(id, query);
   }
 }

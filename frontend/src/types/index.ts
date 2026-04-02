@@ -6,6 +6,9 @@ export interface User {
   avatar?: string
   bio?: string
   role: 'USER' | 'ADMIN'
+  level: number
+  experience: number
+  title?: string
   createdAt: string
   updatedAt: string
 }
@@ -188,4 +191,53 @@ export interface BotStat {
   postCount: number
   commentCount: number
   isActive: boolean
+}
+
+// 等级/经验相关
+export interface LevelConfig {
+  id: number
+  level: number
+  name: string
+  minExp: number
+  maxExp: number
+  icon: string
+  color: string
+}
+
+export interface UserLevel {
+  user: User
+  level: number
+  experience: number
+  levelConfig: LevelConfig
+  nextLevelConfig?: LevelConfig
+  progress: number // 0-100 升级进度百分比
+  expToNext: number // 距离下一级还需的经验值
+}
+
+export interface ExperienceLog {
+  id: string
+  amount: number
+  type: string
+  description?: string
+  createdAt: string
+}
+
+// 徽章相关
+export interface Badge {
+  id: string
+  name: string
+  slug: string
+  description: string
+  icon: string
+  category: string
+  isRare: boolean
+  earned?: boolean
+  earnedAt?: string
+}
+
+// 排行榜相关
+export interface LeaderboardEntry {
+  rank: number
+  user: User
+  value: number
 }
