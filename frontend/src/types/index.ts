@@ -91,3 +91,48 @@ export interface PaginatedResponse<T> {
     totalPages: number
   }
 }
+
+// Bot 相关
+export interface Bot {
+  id: string
+  name: string
+  displayName: string
+  avatar?: string
+  bio?: string
+  personality: string
+  topics: string[]
+  isActive: boolean
+  postFrequency: string
+  commentFrequency: string
+  autoReply: boolean
+  autoMessage: boolean
+  user: User
+  createdAt: string
+}
+
+// 私信相关
+export interface Conversation {
+  id: string
+  type: 'DIRECT'
+  lastMessageAt: string
+  participants: ConversationParticipant[]
+  messages?: Message[]
+  _count?: { messages: number }
+}
+
+export interface ConversationParticipant {
+  id: string
+  lastReadAt?: string
+  userId: string
+  user: User
+}
+
+export interface Message {
+  id: string
+  content: string
+  isRead: boolean
+  senderId: string
+  sender: User
+  conversationId: string
+  createdAt: string
+}

@@ -17,11 +17,15 @@ model User {
   avatar    String?   @db.VarChar(500)
   bio       String?   @db.VarChar(500)
   role      Role      @default(USER)
+  isBot     Boolean   @default(false) @map("is_bot")
 
-  posts     Post[]
-  comments  Comment[]
-  likes     Like[]
-  bookmarks Bookmark[]
+  posts       Post[]
+  comments    Comment[]
+  likes       Like[]
+  bookmarks   Bookmark[]
+  bot         Bot?
+  conversations ConversationParticipant[]
+  sentMessagesList Message[] @relation("MessageSender")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -32,6 +36,135 @@ model User {
 enum Role {
   USER
   ADMIN
+}
+
+// ==================== AI 机器人模型 ====================
+
+model Bot {
+  id          String   @id @default(cuid())
+  name        String   @unique @db.VarChar(50)
+  displayName String   @db.VarChar(50)
+  avatar      String?  @db.VarChar(500)
+  bio         String?  @db.VarChar(500)
+  personality String   @db.Text
+  systemPrompt String  @db.Text @map("system_prompt")
+  topics      String[] // 内容方向标签
+  isActive    Boolean  @default(true) @map("is_active")
+  postFrequency String @default("3-5") @map("post_frequency") // 每天发帖频率
+  commentFrequency String @default("10-20") @map("comment_frequency") // 每天评论频率
+  autoReply   Boolean  @default(true) @map("auto_reply") // 被评论/点赞自动回复
+  autoMessage Boolean  @default(true) @map("auto_message") // 私信自动回复
+
+  userId      String   @unique @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rssSources  RssSource[]
+  botLogs     BotLog[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("bots")
+}
+
+// ==================== RSS 源模型 ====================
+
+model RssSource {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(100)
+  url         String   @db.VarChar(500)
+  siteUrl     String?  @db.VarChar(500) @map("site_url")
+  description String?  @db.VarChar(500)
+  language    String   @default("zh") @db.VarChar(10)
+  isActive    Boolean  @default(true) @map("is_active")
+  lastFetched DateTime? @map("last_fetched")
+
+  botId       String   @map("bot_id")
+  bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("rss_sources")
+}
+
+// ==================== Bot 操作日志 ====================
+
+model BotLog {
+  id        String   @id @default(cuid())
+  action    String   @db.VarChar(50) // POST_CREATED, COMMENT_CREATED, REPLY_SENT, MESSAGE_SENT
+  targetType String? @db.VarChar(20) @map("target_type") // post, comment, message
+  targetId  String?  @map("target_id")
+  metadata  Json?    // 额外信息
+
+  botId     String   @map("bot_id")
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([botId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("bot_logs")
+}
+
+// ==================== 私信会话模型 ====================
+
+model Conversation {
+  id        String   @id @default(cuid())
+  type      ConversationType @default(DIRECT)
+
+  participants ConversationParticipant[]
+
+  messages   Message[]
+
+  lastMessageAt DateTime @map("last_message_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("conversations")
+}
+
+enum ConversationType {
+  DIRECT // 一对一
+}
+
+// ==================== 会话参与者模型 ====================
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  lastReadAt     DateTime?    @map("last_read_at")
+
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, conversationId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+// ==================== 私信消息模型 ====================
+
+model Message {
+  id             String       @id @default(cuid())
+  content        String       @db.Text
+  isRead         Boolean      @default(false) @map("is_read")
+
+  senderId       String       @map("sender_id")
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([senderId])
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("messages")
 }
 
 // ==================== 分类模型 ====================
@@ -76,6 +209,7 @@ model Post {
   isPinned   Boolean   @default(false) @map("is_pinned")
   isLocked   Boolean   @default(false) @map("is_locked")
   viewCount  Int       @default(0) @map("view_count")
+  sourceUrl  String?   @db.VarChar(500) @map("source_url") // RSS 来源链接
 
   authorId   String    @map("author_id")
   categoryId String?   @map("category_id")

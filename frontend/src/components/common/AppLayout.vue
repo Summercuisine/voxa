@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { NLayout, NLayoutContent, NLayoutHeader, NButton, NDropdown, NAvatar, NSpace } from 'naive-ui'
+import { NLayout, NLayoutContent, NLayoutHeader, NButton, NDropdown, NAvatar, NSpace, NBadge } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
+import { useMessageStore } from '@/stores/message'
+import { onMounted, onUnmounted } from 'vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+const messageStore = useMessageStore()
 
 const userDropdownOptions = [
   { label: '个人主页', key: 'profile' },
@@ -25,6 +28,7 @@ function handleUserDropdownSelect(key: string) {
       break
     case 'logout':
       userStore.logout()
+      messageStore.stopPolling()
       router.push('/')
       break
   }
@@ -33,6 +37,16 @@ function handleUserDropdownSelect(key: string) {
 function goHome() {
   router.push('/')
 }
+
+onMounted(() => {
+  if (userStore.isLoggedIn) {
+    messageStore.startPolling()
+  }
+})
+
+onUnmounted(() => {
+  messageStore.stopPolling()
+})
 </script>
 
 <template>
@@ -40,6 +54,18 @@ function goHome() {
     <n-layout-header bordered style="height: 56px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between">
       <div class="logo" @click="goHome" style="cursor: pointer">
         Voxa
+      </div>
+      <div class="header-nav">
+        <n-button quaternary size="small" @click="router.push('/bots')">
+          AI 机器人
+        </n-button>
+        <template v-if="userStore.isLoggedIn">
+          <n-badge :value="messageStore.unreadCount || undefined" :max="99">
+            <n-button quaternary size="small" @click="router.push('/messages')">
+              私信
+            </n-button>
+          </n-badge>
+        </template>
       </div>
       <div class="header-actions">
         <template v-if="userStore.isLoggedIn">
@@ -84,6 +110,12 @@ function goHome() {
   font-weight: bold;
   color: #18a058;
   user-select: none;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .header-actions {

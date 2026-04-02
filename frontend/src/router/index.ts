@@ -45,6 +45,30 @@ const routes: RouteRecordRaw[] = [
     name: 'settings',
     component: () => import('@/views/SettingsView.vue'),
   },
+  {
+    path: '/messages',
+    name: 'messages',
+    component: () => import('@/views/MessagesView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/messages/:id',
+    name: 'chat',
+    component: () => import('@/views/MessagesView.vue'),
+    props: true,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/bots',
+    name: 'bots',
+    component: () => import('@/views/BotsView.vue'),
+  },
+  {
+    path: '/bots/:id',
+    name: 'bot-detail',
+    component: () => import('@/views/BotDetailView.vue'),
+    props: true,
+  },
 ]
 
 const router = createRouter({
